@@ -1,0 +1,7 @@
+{
+  "name": "Eatlytic",
+  "description": "Your intelligent food companion for understanding your body's response to food. Snap a photo of food or labels to see its impact on your body.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
