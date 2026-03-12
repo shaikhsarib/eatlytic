@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Eatlytic AI — Smart Food Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --forest: #1E3A2F; --moss: #2D5241; --sage: #4A7C59;
+            --mint: #7FB896; --cream: #FAF6EE; --parchment: #F0E9DA;
+            --gold: #C9A84C; --coral: #D96B47; --ink: #1A1A1A;
+            --mist: #6B7280; --whisper: #E8E0D5; --white: #FFFFFF;
+            --good: #2D7A4F; --moderate: #B07D22; --caution: #C94B1E; --bad: #8B1A1A;
+            --radius: 18px; --radius-sm: 12px;
+            --shadow: 0 4px 20px rgba(30,58,47,0.10);
+            --nav-h: 64px;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        html { scroll-behavior:smooth; }
+        body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--ink);
+               height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+        /* ===== HEADER ===== */
+        .header {
+            padding: 14px 18px;
+            background: var(--forest);
+            display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0; z-index: 10;
+        }
+        .logo { font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--cream); }
+        .logo em { color:var(--gold); font-style:italic; }
+        .header-right { display:flex; gap:8px; align-items:center; }
+        .hdr-btn {
+            background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2);
+            color:var(--cream); padding:7px 13px; border-radius:50px;
+            font-size:0.78rem; font-weight:600; cursor:pointer;
+            font-family:'DM Sans',sans-serif; display:flex; align-items:center; gap:5px;
+        }
+        /* ===== TAB PAGES ===== */
+        .tab-pages { flex:1; overflow:hidden; position:relative; }
+        .tab-page {
+            position:absolute; inset:0; overflow-y:auto; overflow-x:hidden;
+            padding: 16px 16px 80px;
+            display:none;
+        }
+        .tab-page.active { display:block; }
+        /* ===== BOTTOM NAV ===== */
+        .bottom-nav {
+            height: var(--nav-h); background: var(--white);
+            border-top: 1px solid var(--whisper);
+            display: flex; flex-shrink: 0; z-index: 20;
+        }
+        .nav-item {
+            flex:1; display:flex; flex-direction:column; align-items:center;
+            justify-content:center; gap:3px; cursor:pointer;
+            font-size:0.65rem; font-weight:700; letter-spacing:0.5px;
+            text-transform:uppercase; color:var(--mist); transition:color 0.2s;
+        }
+        .nav-item i { font-size:1.1rem; }
+        .nav-item.active { color:var(--forest); }
+        .nav-item.active i { transform:scale(1.1); }
+        /* ===== SHARED COMPONENTS ===== */
+        .section-label {
+            font-size:0.68rem; font-weight:700; letter-spacing:2px;
+            text-transform:uppercase; color:var(--sage); margin-bottom:10px;
+        }
+        .chip-row {
+            display:flex; gap:8px; overflow-x:auto; padding-bottom:3px;
+            scrollbar-width:none;
+        }
+        .chip-row::-webkit-scrollbar { display:none; }
+        .chip {
+            flex-shrink:0; padding:7px 15px; background:var(--white);
+            border-radius:50px; border:1.5px solid var(--whisper);
+            font-size:0.8rem; font-weight:600; cursor:pointer; color:var(--mist);
+            transition:all 0.2s; font-family:'DM Sans',sans-serif;
+        }
+        .chip.active { background:var(--forest); color:var(--cream); border-color:var(--forest); }
+        .card {
+            background:var(--white); border-radius:var(--radius);
+            border:1.5px solid var(--whisper); padding:16px;
+            box-shadow:var(--shadow);
+        }
+        .btn-primary {
+            width:100%; background:linear-gradient(135deg,var(--forest),var(--moss));
+            color:var(--cream); padding:15px; border-radius:var(--radius-sm);
+            font-weight:700; font-size:0.92rem; border:none; cursor:pointer;
+            font-family:'DM Sans',sans-serif; transition:opacity 0.2s;
+            box-shadow:0 4px 14px rgba(30,58,47,0.28); margin-top:12px;
+        }
+        .btn-primary:active { opacity:0.85; }
+        .btn-ghost {
+            width:100%; background:transparent; color:var(--mist); padding:11px;
+            border:none; font-weight:600; cursor:pointer; font-size:0.84rem;
+            font-family:'DM Sans',sans-serif; margin-top:4px;
+        }
+        /* ===== HOME TAB ===== */
+        .persona-section, .cat-section { margin-bottom:16px; }
+        .action-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+        .scan-card {
+            background:var(--white); padding:22px 14px; border-radius:var(--radius);
+            border:1.5px solid var(--whisper); box-shadow:var(--shadow);
+            cursor:pointer; display:flex; flex-direction:column;
+            align-items:center; gap:10px; transition:all 0.2s;
+        }
+        .scan-card:active { transform:scale(0.96); border-color:var(--sage); }
+        .scan-icon {
+            width:50px; height:50px; border-radius:14px;
+            background:linear-gradient(135deg,var(--forest),var(--sage));
+            display:flex; align-items:center; justify-content:center;
+            color:white; font-size:1.2rem;
+        }
+        .scan-card h3 { font-size:0.88rem; font-weight:700; color:var(--forest); }
+        .scan-card p { font-size:0.7rem; color:var(--mist); }
+        /* ===== UPLOAD / PREVIEW ===== */
+        #preview-area { display:none; margin-bottom:4px; }
+        #preview-img {
+            width:100%; height:230px; object-fit:cover;
+            border-radius:var(--radius); border:3px solid var(--white);
+            box-shadow:var(--shadow); margin-bottom:8px;
+            transition: opacity 0.3s;
+        }
+        /* Upload progress bar */
+        .upload-progress {
+            width:100%; height:4px; background:var(--whisper);
+            border-radius:2px; overflow:hidden; margin-bottom:8px; display:none;
+        }
+        .upload-progress-bar {
+            height:100%; width:0%; background:linear-gradient(90deg,var(--sage),var(--gold));
+            border-radius:2px; transition:width 0.4s ease;
+        }
+        /* Image state badge — replaces simple quality-badge */
+        .img-state-row {
+            display:flex; align-items:center; gap:8px;
+            padding:8px 12px; border-radius:var(--radius-sm);
+            margin-bottom:10px; font-size:0.8rem; font-weight:600;
+        }
+        .img-state-row .state-icon { font-size:1.1rem; flex-shrink:0; }
+        .img-state-row .state-text { flex:1; }
+        .img-state-row .state-tip { font-size:0.7rem; color:var(--mist); font-weight:400; margin-top:1px; }
+        .img-state-row.checking { background:#F0F4FF; color:#3730A3; border:1.5px solid #C7D2FE; }
+        .img-state-row.good     { background:#ECFDF5; color:var(--good); border:1.5px solid #A7F3D0; }
+        .img-state-row.fair     { background:#FFFBEB; color:var(--moderate); border:1.5px solid #FDE68A; }
+        .img-state-row.poor     { background:#FEF2F2; color:var(--caution); border:1.5px solid #FECACA; }
+        /* Error card — rich contextual variant */
+        .error-card {
+            border-radius:var(--radius-sm); padding:0;
+            display:none; margin-bottom:12px; overflow:hidden;
+            border:1.5px solid #FECACA;
+        }
+        .error-card-inner {
+            padding:16px; text-align:center;
+        }
+        /* Flip instruction card — special no_label variant */
+        .error-card.no-label {
+            border-color:#FDE68A; background:#FFFBEB;
+        }
+        .error-card.no-label .error-card-inner { background:#FFFBEB; }
+        .flip-illustration {
+            display:flex; align-items:center; justify-content:center;
+            gap:10px; margin:10px 0; padding:12px;
+            background:rgba(255,255,255,0.7); border-radius:10px;
+        }
+        .flip-box {
+            width:52px; height:68px; border-radius:8px;
+            display:flex; align-items:center; justify-content:center;
+            flex-direction:column; gap:3px; font-size:0.6rem;
+            font-weight:700; letter-spacing:0.3px;
+        }
+        .flip-box.front { background:#FEE2E2; color:#991B1B; border:2px solid #FECACA; }
+        .flip-box.back  { background:#DCFCE7; color:#166534; border:2px dashed #86EFAC; }
+        .flip-box .fb-icon { font-size:1.4rem; }
+        .flip-arrow { font-size:1.4rem; color:var(--mist); }
+        .error-card .err-icon { font-size:2rem; margin-bottom:6px; display:block; }
+        .error-card .err-title { font-weight:700; color:#991B1B; margin-bottom:4px; font-size:0.92rem; }
+        .error-card.no-label .err-title { color:#92400E; }
+        .error-card .err-msg  { font-size:0.82rem; color:#7F1D1D; line-height:1.5; }
+        .error-card.no-label .err-msg { color:#78350F; }
+        .err-retry-btn {
+            width:100%; margin-top:12px; padding:11px;
+            background:var(--forest); color:var(--cream);
+            border:none; border-radius:var(--radius-sm); font-weight:700;
+            font-size:0.84rem; cursor:pointer; font-family:"DM Sans",sans-serif;
+        }
+        .err-secondary-btn {
+            width:100%; margin-top:8px; padding:9px;
+            background:transparent; color:var(--mist);
+            border:1.5px solid var(--whisper); border-radius:var(--radius-sm);
+            font-weight:600; font-size:0.8rem; cursor:pointer;
+            font-family:"DM Sans",sans-serif;
+        }
+        /* Upload guidance hint (shown on landing) */
+        .upload-hint {
+            background:var(--white); border:1.5px solid var(--whisper);
+            border-radius:var(--radius-sm); padding:12px 14px;
+            display:flex; align-items:flex-start; gap:10px;
+            margin-bottom:14px;
+        }
+        .upload-hint-icon { font-size:1.3rem; flex-shrink:0; margin-top:1px; }
+        .upload-hint-text { font-size:0.78rem; color:var(--mist); line-height:1.5; }
+        .upload-hint-text strong { color:var(--forest); }
+        /* Drag-drop zone */
+        .drop-zone {
+            border:2px dashed var(--whisper); border-radius:var(--radius);
+            padding:24px 16px; text-align:center;
+            transition:all 0.2s; cursor:pointer; background:var(--white);
+        }
+        .drop-zone.drag-over {
+            border-color:var(--sage); background:#F0FDF4;
+        }
+        .drop-zone-icon { font-size:2rem; margin-bottom:6px; }
+        .drop-zone-text { font-size:0.82rem; color:var(--mist); }
+        .drop-zone-text strong { color:var(--forest); }
+        /* ===== HISTORY TAB ===== */
+        .history-empty {
+            text-align:center; padding:40px 20px; color:var(--mist);
+        }
+        .history-empty i { font-size:2.5rem; opacity:0.3; display:block; margin-bottom:12px; }
+        .history-card {
+            background:var(--white); border-radius:var(--radius-sm);
+            border:1.5px solid var(--whisper); padding:14px 16px;
+            margin-bottom:10px; display:flex; align-items:center; gap:12px;
+            cursor:pointer; transition:border-color 0.2s;
+        }
+        .history-card:hover { border-color:var(--sage); }
+        .h-score-ring {
+            width:46px; height:46px; border-radius:50%; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            font-weight:800; font-size:1rem;
+        }
+        .h-name { font-weight:700; font-size:0.88rem; color:var(--forest); }
+        .h-meta { font-size:0.72rem; color:var(--mist); margin-top:2px; }
+        .h-del { margin-left:auto; color:#CBD5E1; padding:6px; cursor:pointer; font-size:0.85rem; }
+        .h-del:hover { color:var(--coral); }
+        .history-clear-btn {
+            width:100%; padding:11px; border:1.5px solid var(--whisper);
+            border-radius:var(--radius-sm); background:transparent;
+            color:var(--mist); font-weight:600; font-size:0.82rem;
+            cursor:pointer; font-family:'DM Sans',sans-serif; margin-top:8px;
+        }
+        .history-clear-btn:hover { border-color:var(--coral); color:var(--coral); }
+        /* ===== PROFILE TAB ===== */
+        .profile-avatar {
+            width:80px; height:80px; border-radius:50%;
+            background:linear-gradient(135deg,var(--forest),var(--sage));
+            display:flex; align-items:center; justify-content:center;
+            font-size:2rem; margin:0 auto 10px; color:white;
+        }
+        .profile-name {
+            font-family:'Playfair Display',serif; font-size:1.3rem;
+            text-align:center; color:var(--forest); margin-bottom:4px;
+        }
+        .profile-sub { text-align:center; font-size:0.82rem; color:var(--mist); margin-bottom:20px; }
+        .profile-section { margin-bottom:16px; }
+        .profile-row {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:14px 16px; background:var(--white);
+            border-radius:var(--radius-sm); border:1.5px solid var(--whisper);
+            margin-bottom:8px;
+        }
+        .profile-row-left { display:flex; align-items:center; gap:12px; }
+        .profile-row-icon {
+            width:36px; height:36px; border-radius:10px;
+            background:var(--parchment); display:flex; align-items:center;
+            justify-content:center; font-size:0.95rem;
+        }
+        .profile-row-label { font-weight:600; font-size:0.87rem; color:var(--forest); }
+        .profile-row-value { font-size:0.78rem; color:var(--mist); }
+        .toggle-switch {
+            width:42px; height:24px; background:var(--whisper);
+            border-radius:12px; position:relative; cursor:pointer;
+            transition:background 0.2s;
+        }
+        .toggle-switch.on { background:var(--sage); }
+        .toggle-knob {
+            position:absolute; top:3px; left:3px; width:18px; height:18px;
+            border-radius:50%; background:white;
+            transition:transform 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.2);
+        }
+        .toggle-switch.on .toggle-knob { transform:translateX(18px); }
+        .profile-select {
+            border:none; background:transparent; font-family:'DM Sans',sans-serif;
+            font-size:0.82rem; color:var(--mist); cursor:pointer;
+            text-align:right;
+        }
+        .stat-row {
+            display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:16px;
+        }
+        .stat-box {
+            background:var(--white); border-radius:var(--radius-sm);
+            border:1.5px solid var(--whisper); padding:14px;
+            text-align:center;
+        }
+        .stat-num { font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--forest); }
+        .stat-lbl { font-size:0.68rem; color:var(--mist); font-weight:600; letter-spacing:0.5px; margin-top:2px; }
+        /* ===== LOADER ===== */
+        #loader {
+            position:fixed; inset:0; background:rgba(250,246,238,0.95);
+            backdrop-filter:blur(8px); z-index:600; display:none;
+            flex-direction:column; align-items:center; justify-content:center; gap:16px;
+        }
+        .loader-ring {
+            width:58px; height:58px; border:4px solid var(--whisper);
+            border-top-color:var(--forest); border-radius:50%;
+            animation:spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .loader-text { font-family:'Playfair Display',serif; font-size:1.05rem; color:var(--forest); }
+        .loader-step { font-size:0.78rem; color:var(--mist); text-align:center; max-width:230px; }
+        .loader-hint { font-size:0.7rem; color:#aab; text-align:center; }
+        .loader-cancel-btn {
+            margin-top:16px; padding:9px 26px; background:transparent;
+            border:1.5px solid var(--whisper); border-radius:50px;
+            color:var(--mist); font-size:0.8rem; font-weight:600;
+            cursor:pointer; font-family:'DM Sans',sans-serif;
+        }
+        /* ===== CAMERA ===== */
+        #cam-overlay { position:fixed; inset:0; z-index:500; background:black; display:none; }
+        #cam-overlay.active { display:block; }
+        video { width:100%; height:100%; object-fit:cover; display:block; }
+        .cam-ui { position:absolute; inset:0; display:flex; flex-direction:column; }
+        .cam-guide { flex:1; display:flex; align-items:center; justify-content:center; }
+        .cam-frame {
+            width:270px; height:190px; border:2px solid rgba(255,255,255,0.5);
+            border-radius:14px; position:relative;
+        }
+        .cam-frame::before, .cam-frame::after {
+            content:''; position:absolute; width:28px; height:28px;
+            border-color:var(--gold); border-style:solid;
+        }
+        .cam-frame::before { top:-2px; left:-2px; border-width:3px 0 0 3px; border-radius:12px 0 0 0; }
+        .cam-frame::after { bottom:-2px; right:-2px; border-width:0 3px 3px 0; border-radius:0 0 12px 0; }
+        .cam-hint { color:rgba(255,255,255,0.7); text-align:center; font-size:0.78rem; margin-top:10px; }
+        .cam-controls {
+            padding:18px 30px 36px;
+            background:linear-gradient(to top,rgba(0,0,0,0.8),transparent);
+            display:flex; justify-content:center; align-items:center; position:relative;
+        }
+        .shutter {
+            width:70px; height:70px; background:white; border-radius:50%;
+            border:4px solid rgba(255,255,255,0.35); cursor:pointer;
+            box-shadow:0 4px 20px rgba(0,0,0,0.4); transition:transform 0.1s;
+        }
+        .shutter:active { transform:scale(0.9); }
+        .cam-cancel {
+            position:absolute; left:28px; color:white;
+            background:rgba(0,0,0,0.4); padding:8px 16px;
+            border-radius:50px; border:1px solid rgba(255,255,255,0.2);
+            font-size:0.82rem; font-weight:600; cursor:pointer;
+            font-family:'DM Sans',sans-serif; backdrop-filter:blur(4px);
+        }
+        /* ===== REPORT ===== */
+        #report {
+            position:fixed; inset:0; background:var(--cream); z-index:400;
+            transform:translateY(100%);
+            transition:transform 0.42s cubic-bezier(0.16,1,0.3,1);
+            overflow:hidden;          /* NO scroll here — child scrolls */
+            display:flex; flex-direction:column;
+        }
+        #report.open { transform:translateY(0); }
+        /* Inner scroll area — only this scrolls */
+        .report-scroll {
+            flex:1; overflow-y:auto; overflow-x:hidden;
+            padding-bottom:0;         /* footer handles spacing */
+            -webkit-overflow-scrolling:touch;
+        }
+        .report-hero {
+            background:linear-gradient(155deg,var(--forest) 0%,var(--moss) 55%,var(--sage) 100%);
+            padding:18px 18px 32px; position:relative; overflow:hidden;
+        }
+        .report-hero::after {
+            content:''; position:absolute; top:-60px; right:-60px;
+            width:220px; height:220px;
+            background:radial-gradient(circle,rgba(201,168,76,0.18) 0%,transparent 70%);
+            pointer-events:none;
+        }
+        .report-topbar {
+            display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;
+        }
+        .back-btn {
+            width:36px; height:36px; border-radius:50%;
+            background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2);
+            display:flex; align-items:center; justify-content:center;
+            color:white; cursor:pointer;
+        }
+        .verdict-badge {
+            background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25);
+            color:white; padding:5px 14px; border-radius:50px;
+            font-size:0.75rem; font-weight:700; letter-spacing:1px;
+        }
+        /* Score + Info row */
+        .hero-row { display:flex; align-items:flex-start; gap:16px; }
+        .score-col { flex-shrink:0; text-align:center; }
+        .score-ring-wrap { width:110px; height:110px; position:relative; margin:0 auto; }
+        .score-ring-center {
+            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+            text-align:center;
+        }
+        .score-num {
+            font-family:'Playfair Display',serif; font-size:2.2rem;
+            font-weight:900; color:white; line-height:1;
+        }
+        .score-sub { font-size:0.62rem; color:rgba(255,255,255,0.55); font-weight:600; }
+        /* PIE CHART LEGEND — key fix */
+        .pie-legend {
+            display:flex; flex-direction:column; gap:4px; margin-top:8px;
+        }
+        .pie-legend-item {
+            display:flex; align-items:center; gap:6px;
+            font-size:0.66rem; color:rgba(255,255,255,0.8); font-weight:500;
+        }
+        .pie-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+        .info-col { flex:1; padding-top:2px; }
+        .product-cat-tag {
+            display:inline-flex; align-items:center; gap:5px;
+            background:rgba(255,255,255,0.14); color:rgba(255,255,255,0.8);
+            padding:3px 10px; border-radius:50px; font-size:0.7rem; font-weight:600;
+            margin-bottom:6px;
+        }
+        .product-name {
+            font-family:'Playfair Display',serif; font-size:1.25rem;
+            color:white; line-height:1.2; margin-bottom:8px;
+        }
+        .summary-text { font-size:0.8rem; color:rgba(255,255,255,0.72); line-height:1.5; }
+        /* ===== REPORT BODY ===== */
+        .report-body { padding:0 14px 20px; }   /* scroll area handles padding */
+        .r-section {
+            background:var(--white); border-radius:var(--radius);
+            padding:16px; margin-top:12px; border:1.5px solid var(--whisper);
+        }
+        .r-title {
+            font-size:0.68rem; font-weight:700; letter-spacing:2px;
+            text-transform:uppercase; color:var(--sage); margin-bottom:12px;
+            display:flex; align-items:center; gap:8px;
+        }
+        .r-title::after { content:''; flex:1; height:1px; background:var(--whisper); }
+        /* ELI5 */
+        .eli5-box {
+            background:linear-gradient(135deg,#FFFBEB,#FFF8DC);
+            border:1.5px solid #F5DFA0; border-radius:var(--radius-sm);
+            padding:14px; font-size:0.87rem; line-height:1.6; color:#6B5A1E;
+        }
+        .eli5-label {
+            font-weight:700; font-size:0.68rem; letter-spacing:1px;
+            text-transform:uppercase; color:var(--gold);
+            margin-bottom:6px; display:block;
+        }
+        /* NUTRIENTS */
+        .nutrient-legend { display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap; }
+        .n-leg { display:flex; align-items:center; gap:4px; font-size:0.72rem; color:var(--mist); }
+        .n-dot { width:8px; height:8px; border-radius:50%; }
+        .nutrient-item { margin-bottom:10px; }
+        .nutrient-row { display:flex; align-items:center; gap:10px; }
+        .n-name { font-size:0.8rem; font-weight:600; color:var(--forest); width:76px; flex-shrink:0; }
+        .n-bar-wrap { flex:1; height:7px; background:var(--parchment); border-radius:10px; overflow:hidden; }
+        .n-bar { height:100%; border-radius:10px; width:0%; transition:width 0.9s ease; }
+        .n-val { font-size:0.73rem; color:var(--mist); font-weight:600; width:46px; text-align:right; flex-shrink:0; }
+        .n-impact { font-size:0.7rem; color:var(--mist); line-height:1.4; margin-top:2px; padding-left:86px; }
+        .bar-good { background:linear-gradient(90deg,#4CAF7D,#2D9B5A); }
+        .bar-moderate { background:linear-gradient(90deg,#F5A623,#E8902A); }
+        .bar-caution { background:linear-gradient(90deg,#FF7043,#E53935); }
+        .bar-bad { background:linear-gradient(90deg,#C62828,#8B0000); }
+        /* PROS CONS */
+        .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .pc-label { font-size:0.68rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px; }
+        .pc-label.p { color:var(--good); } .pc-label.c { color:var(--caution); }
+        .pc-item { font-size:0.78rem; line-height:1.5; padding:5px 0; border-bottom:1px solid var(--whisper); display:flex; gap:6px; }
+        .pc-item:last-child { border:none; }
+        .pc-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; margin-top:8px; }
+        .pc-dot.p { background:var(--good); } .pc-dot.c { background:var(--caution); }
+        /* AGE WARNINGS */
+        .age-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .age-card { padding:12px; border-radius:var(--radius-sm); border:1.5px solid; }
+        .age-card.good { background:#ECFDF5; border-color:#A7F3D0; }
+        .age-card.caution { background:#FFFBEB; border-color:#FCD34D; }
+        .age-card.warning { background:#FEF2F2; border-color:#FECACA; }
+        .age-emoji { font-size:1.3rem; }
+        .age-grp { font-size:0.7rem; font-weight:700; letter-spacing:0.5px; margin-top:2px; }
+        .age-card.good .age-grp { color:#065F46; }
+        .age-card.caution .age-grp { color:#92400E; }
+        .age-card.warning .age-grp { color:#991B1B; }
+        .age-msg { font-size:0.73rem; line-height:1.4; margin-top:4px; color:var(--ink); }
+        /* PARAGRAPHS */
+        .para-text { font-size:0.86rem; line-height:1.7; color:var(--ink); }
+        .para-text + .para-text { margin-top:12px; }
+        /* MOLECULAR */
+        .mol-box {
+            background:#F8F4FF; border:1.5px solid #DDD6FE;
+            border-radius:var(--radius-sm); padding:13px;
+            font-size:0.84rem; line-height:1.6; color:#3B1E7A;
+        }
+        /* ALTERNATIVE */
+        .alt-box {
+            background:linear-gradient(135deg,var(--forest),var(--moss));
+            border-radius:var(--radius-sm); padding:15px;
+            display:flex; align-items:flex-start; gap:10px;
+        }
+        .alt-icon { font-size:1.4rem; flex-shrink:0; }
+        .alt-lbl { font-size:0.68rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--mint); margin-bottom:3px; }
+        .alt-text { font-size:0.83rem; color:var(--cream); line-height:1.5; }
+        /* SHARE BAR — lives outside #report at document level */
+        .report-share-bar {
+            position:fixed; bottom:0; left:0; right:0;
+            padding:12px 14px 26px;
+            background:var(--cream);
+            border-top:1px solid var(--whisper);
+            display:none;             /* shown only when report is open */
+            gap:10px; z-index:420;
+            align-items:center;
+        }
+        .report-share-bar.visible { display:flex; }
+        .share-btn {
+            flex:1; padding:13px; border-radius:var(--radius-sm);
+            font-weight:700; font-size:0.83rem; border:none; cursor:pointer;
+            font-family:'DM Sans',sans-serif; transition:opacity 0.2s;
+        }
+        .share-btn.p { background:var(--forest); color:var(--cream); }
+        .share-btn.s { background:var(--white); color:var(--forest); border:1.5px solid var(--whisper); }
+        /* LANG MODAL */
+        #lang-modal { position:fixed; inset:0; z-index:700; display:none; align-items:flex-end; justify-content:center; }
+        #lang-modal.open { display:flex; }
+        .lang-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); }
+        .lang-sheet {
+            position:relative; z-index:1; background:var(--cream);
+            border-radius:22px 22px 0 0; padding:18px 16px 36px;
+            width:100%; max-width:460px;
+        }
+        .lang-handle { width:38px; height:4px; background:var(--whisper); border-radius:2px; margin:0 auto 16px; }
+        .lang-title { font-family:'Playfair Display',serif; font-size:1.2rem; color:var(--forest); margin-bottom:14px; }
+        .lang-option {
+            display:flex; align-items:center; gap:12px; padding:13px 14px;
+            border-radius:var(--radius-sm); cursor:pointer; transition:background 0.15s;
+            font-weight:500; font-size:0.88rem;
+        }
+        .lang-option:hover { background:var(--parchment); }
+        .lang-option.active { background:var(--forest); color:white; }
+        .lang-flag { font-size:1.3rem; }
+        /* TOAST */
+        .toast {
+            position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(16px);
+            background:var(--forest); color:white; padding:9px 20px;
+            border-radius:50px; font-size:0.8rem; font-weight:600;
+            opacity:0; transition:all 0.3s; z-index:800; white-space:nowrap;
+        }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+        /* ===== BLUR NOTICE BANNER ===== */
+        .blur-notice {
+            display:none; border-radius:var(--radius-sm);
+            border:1.5px solid #FCD34D; background:#FFFBEB;
+            padding:12px 14px; margin-bottom:12px;
+        }
+        .blur-notice.visible { display:block; }
+        .blur-notice-header {
+            display:flex; align-items:center; gap:8px;
+            font-weight:700; font-size:0.85rem; color:#92400E; margin-bottom:4px;
+        }
+        .blur-notice-header .bn-icon { font-size:1.1rem; }
+        .blur-notice-body { font-size:0.78rem; color:#78350F; line-height:1.5; }
+        .blur-notice-methods {
+            margin-top:6px; font-size:0.7rem; color:#A16207;
+            background:rgba(251,191,36,0.15); padding:5px 9px;
+            border-radius:6px; font-family:monospace; word-break:break-all;
+        }
+        /* Deblurred image preview inside report */
+        .deblur-report-badge {
+            display:inline-flex; align-items:center; gap:5px;
+            padding:4px 10px; border-radius:50px;
+            background:#FEF3C7; border:1px solid #FCD34D;
+            font-size:0.72rem; font-weight:700; color:#92400E;
+            margin-bottom:10px;
+        }
+        .deblur-img-wrap {
+            border-radius:var(--radius-sm); overflow:hidden;
+            border:2px solid #FCD34D; margin-bottom:10px;
+        }
+        .deblur-img-wrap img { width:100%; display:block; }
+        /* Severity pill */
+        .severity-pill {
+            display:inline-block; padding:2px 8px; border-radius:50px;
+            font-size:0.68rem; font-weight:700; letter-spacing:0.5px;
+            text-transform:uppercase; margin-left:6px;
+        }
+        .severity-pill.severe   { background:#FEE2E2; color:#991B1B; }
+        .severity-pill.moderate { background:#FEF3C7; color:#92400E; }
+        .severity-pill.mild     { background:#ECFDF5; color:#065F46; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div class="logo">Eat<em>lytic</em></div>
+    <div class="header-right">
+        <button class="hdr-btn" onclick="openLang()"><i class="fas fa-globe"></i> <span id="lang-display">EN</span></button>
+    </div>
+</div>
+
+<!-- TAB PAGES -->
+<div class="tab-pages">
+
+    <!-- ══ HOME TAB ══ -->
+    <div class="tab-page active" id="page-home">
+
+        <!-- Persona -->
+        <div class="persona-section">
+            <div class="section-label">Eating profile</div>
+            <div class="chip-row" id="persona-row">
+                <div class="chip active" onclick="setChip(this,'persona','General')">🏠 General</div>
+                <div class="chip" onclick="setChip(this,'persona','Gym')">💪 Gym</div>
+                <div class="chip" onclick="setChip(this,'persona','Baby')">👶 Baby</div>
+                <div class="chip" onclick="setChip(this,'persona','Skin')">✨ Skin</div>
+                <div class="chip" onclick="setChip(this,'persona','Keto')">🥑 Keto</div>
+                <div class="chip" onclick="setChip(this,'persona','Heart')">❤️ Heart</div>
+            </div>
+        </div>
+
+        <!-- Category -->
+        <div class="cat-section">
+            <div class="section-label">Product type</div>
+            <div class="chip-row" id="cat-row">
+                <div class="chip active" onclick="setChip(this,'cat','general')">All</div>
+                <div class="chip" onclick="setChip(this,'cat','snack')">🍿 Snack</div>
+                <div class="chip" onclick="setChip(this,'cat','dairy')">🥛 Dairy</div>
+                <div class="chip" onclick="setChip(this,'cat','beverage')">🧃 Beverage</div>
+                <div class="chip" onclick="setChip(this,'cat','supplement')">💊 Supplement</div>
+                <div class="chip" onclick="setChip(this,'cat','frozen')">🧊 Frozen</div>
+            </div>
+        </div>
+
+        <!-- Error card — contextual variants -->
+        <div class="blur-notice" id="blur-notice">
+            <div class="blur-notice-header">
+                <span class="bn-icon">🔧</span>
+                <span id="bn-title">Blur Detected &amp; Corrected</span>
+                <span class="severity-pill" id="bn-severity-pill"></span>
+            </div>
+            <div class="blur-notice-body" id="bn-body">
+                The image was identified as blurry. Advanced deblurring and
+                enhancement algorithms were applied before analysis.
+            </div>
+            <div class="blur-notice-methods" id="bn-methods" style="display:none"></div>
+        </div>
+        <div class="error-card" id="error-card">
+            <div class="error-card-inner" id="error-card-inner">
+                <span class="err-icon" id="err-icon">📷</span>
+                <div class="err-title" id="err-title">Image Issue</div>
+                <div class="err-msg" id="err-msg">Please retake your photo.</div>
+                <div id="err-flip-illustration" style="display:none">
+                    <div class="flip-illustration">
+                        <div class="flip-box front">
+                            <div class="fb-icon">🏷️</div>
+                            <span>FRONT</span>
+                        </div>
+                        <div class="flip-arrow">→</div>
+                        <div class="flip-box back">
+                            <div class="fb-icon">📋</div>
+                            <span>BACK ✓</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="err-retry-btn" id="err-retry-btn" onclick="triggerRetake()">
+                    <i class="fas fa-camera" style="margin-right:6px"></i>Retake Photo
+                </button>
+                <button class="err-secondary-btn" id="err-upload-btn" onclick="document.getElementById('fileInput').click()" style="display:none">
+                    <i class="fas fa-image" style="margin-right:6px"></i>Upload Different Image
+                </button>
+            </div>
+        </div>
+
+        <!-- Landing -->
+        <div id="landing-ui">
+            <!-- Upload guidance hint -->
+            <div class="upload-hint">
+                <div class="upload-hint-icon">💡</div>
+                <div class="upload-hint-text">
+                    <strong>Scan the back label</strong> — point your camera at the side showing ingredients &amp; nutrition facts, not the front of the packet.
+                </div>
+            </div>
+            <div class="action-grid">
+                <div class="scan-card" onclick="startCamera()">
+                    <div class="scan-icon"><i class="fas fa-camera"></i></div>
+                    <h3>Camera</h3>
+                    <p>Scan live label</p>
+                </div>
+                <div class="scan-card"
+                     id="upload-drop-card"
+                     onclick="document.getElementById('fileInput').click()"
+                     ondragover="handleDragOver(event)"
+                     ondragleave="handleDragLeave(event)"
+                     ondrop="handleDrop(event)">
+                    <div class="scan-icon"><i class="fas fa-image"></i></div>
+                    <h3>Upload</h3>
+                    <p>Tap or drag photo</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview -->
+        <div id="preview-area">
+            <img id="preview-img" src="" alt="Preview">
+            <!-- Upload progress bar (shown during OCR) -->
+            <div class="upload-progress" id="upload-progress">
+                <div class="upload-progress-bar" id="upload-progress-bar"></div>
+            </div>
+            <!-- Rich image state badge -->
+            <div id="img-state-badge" class="img-state-row checking" style="display:none">
+                <div class="state-icon" id="state-icon">⏳</div>
+                <div>
+                    <div class="state-text" id="state-text">Checking image...</div>
+                    <div class="state-tip" id="state-tip"></div>
+                </div>
+            </div>
+            <button class="btn-primary" id="analyze-main-btn" onclick="analyze()" style="display:none">
+                <i class="fas fa-microscope" style="margin-right:8px"></i>
+                <span id="analyze-btn-text">Analyze Label</span>
+            </button>
+            <button class="btn-ghost" onclick="resetHome()">↩ Choose different image</button>
+        </div>
+    </div>
+
+    <!-- ══ HISTORY TAB ══ -->
+    <div class="tab-page" id="page-history">
+        <div class="section-label" style="margin-bottom:14px">Scan History</div>
+        <div id="history-list"></div>
+    </div>
+
+    <!-- ══ PROFILE TAB ══ -->
+    <div class="tab-page" id="page-profile">
+        <div class="card" style="margin-bottom:16px; text-align:center; padding:24px 16px;">
+            <div class="profile-avatar" id="prof-avatar">🌿</div>
+            <div class="profile-name" id="prof-name">My Profile</div>
+            <div class="profile-sub" id="prof-sub">General · English</div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-row">
+            <div class="stat-box"><div class="stat-num" id="stat-scans">0</div><div class="stat-lbl">Scans</div></div>
+            <div class="stat-box"><div class="stat-num" id="stat-avg">—</div><div class="stat-lbl">Avg Score</div></div>
+            <div class="stat-box"><div class="stat-num" id="stat-best">—</div><div class="stat-lbl">Best</div></div>
+        </div>
+
+        <!-- Settings -->
+        <div class="profile-section">
+            <div class="section-label">Preferences</div>
+
+            <div class="profile-row">
+                <div class="profile-row-left">
+                    <div class="profile-row-icon">🌐</div>
+                    <div>
+                        <div class="profile-row-label">Language</div>
+                        <div class="profile-row-value" id="pref-lang-val">English</div>
+                    </div>
+                </div>
+                <button onclick="openLang()" style="background:var(--parchment);border:none;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;color:var(--forest);">Change</button>
+            </div>
+
+            <div class="profile-row">
+                <div class="profile-row-left">
+                    <div class="profile-row-icon">👤</div>
+                    <div>
+                        <div class="profile-row-label">Default Persona</div>
+                        <div class="profile-row-value" id="pref-persona-val">General</div>
+                    </div>
+                </div>
+                <select class="profile-select" id="pref-persona-sel" onchange="savePersonaPref(this.value)">
+                    <option value="General">General</option>
+                    <option value="Gym">Gym</option>
+                    <option value="Baby">Baby</option>
+                    <option value="Skin">Skin</option>
+                    <option value="Keto">Keto</option>
+                    <option value="Heart">Heart</option>
+                </select>
+            </div>
+
+            <div class="profile-row">
+                <div class="profile-row-left">
+                    <div class="profile-row-icon">🔔</div>
+                    <div>
+                        <div class="profile-row-label">Save scan history</div>
+                        <div class="profile-row-value">Stored locally on device</div>
+                    </div>
+                </div>
+                <div class="toggle-switch on" id="history-toggle" onclick="toggleHistorySave()">
+                    <div class="toggle-knob"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danger zone -->
+        <div class="profile-section">
+            <div class="section-label">Data</div>
+            <button class="history-clear-btn" onclick="clearAllHistory()">🗑 Clear All Scan History</button>
+        </div>
+    </div>
+
+</div><!-- end tab-pages -->
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="switchTab('home')">
+        <i class="fas fa-home"></i> Home
+    </div>
+    <div class="nav-item" id="nav-history" onclick="switchTab('history')">
+        <i class="fas fa-history"></i> History
+    </div>
+    <div class="nav-item" id="nav-profile" onclick="switchTab('profile')">
+        <i class="fas fa-user"></i> Profile
+    </div>
+</div>
+
+<!-- LOADER -->
+<div id="loader">
+    <div class="loader-ring"></div>
+    <div class="loader-text">Analyzing your food...</div>
+    <div class="loader-step" id="loader-step">Preparing...</div>
+    <div class="loader-hint">First run may take ~30s while AI models load</div>
+    <button class="loader-cancel-btn" onclick="cancelAnalysis()">Cancel</button>
+</div>
+
+<!-- CAMERA -->
+<div id="cam-overlay">
+    <video id="video" autoplay playsinline></video>
+    <div class="cam-ui">
+        <div class="cam-guide">
+            <div>
+                <div class="cam-frame"></div>
+                <div class="cam-hint">📦 Align the product label inside the frame</div>
+            </div>
+        </div>
+        <div class="cam-controls">
+            <div class="cam-cancel" onclick="stopCamera()">Cancel</div>
+            <div class="shutter" onclick="capture()"></div>
+        </div>
+    </div>
+</div>
+<canvas id="canvas" style="display:none"></canvas>
+
+<!-- LANGUAGE MODAL -->
+<div id="lang-modal" onclick="closeLangBackdrop(event)">
+    <div class="lang-backdrop"></div>
+    <div class="lang-sheet">
+        <div class="lang-handle"></div>
+        <div class="lang-title">Select Language</div>
+        <div id="lang-options"></div>
+    </div>
+</div>
+
+<!-- REPORT — flex column, no transform-overflow conflict -->
+<div id="report">
+    <!-- Inner scroll wrapper — only this element scrolls -->
+    <div class="report-scroll">
+        <div class="report-hero">
+            <div class="report-topbar">
+                <div class="back-btn" onclick="closeReport()"><i class="fas fa-chevron-down"></i></div>
+                <div class="verdict-badge" id="r-verdict">—</div>
+            </div>
+            <div class="hero-row">
+                <div class="score-col">
+                    <div class="score-ring-wrap">
+                        <canvas id="safetyChart" width="110" height="110"></canvas>
+                        <div class="score-ring-center">
+                            <div class="score-num" id="r-score">—</div>
+                            <div class="score-sub">/ 10</div>
+                        </div>
+                    </div>
+                    <div class="pie-legend">
+                        <div class="pie-legend-item">
+                            <div class="pie-dot" style="background:#2D7A4F"></div>
+                            <span>Safe — generally healthy</span>
+                        </div>
+                        <div class="pie-legend-item">
+                            <div class="pie-dot" style="background:#C9A84C"></div>
+                            <span>Moderate — be aware</span>
+                        </div>
+                        <div class="pie-legend-item">
+                            <div class="pie-dot" style="background:#D96B47"></div>
+                            <span>Risky — limit or avoid</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-col">
+                    <div class="product-cat-tag" id="r-cat"><i class="fas fa-tag"></i> <span>—</span></div>
+                    <div class="product-name" id="r-name">—</div>
+                    <div class="summary-text" id="r-summary">—</div>
+                </div>
+            </div>
+        </div>
+        <!-- Report sections — rendered once, cleared before each render -->
+        <div class="report-body" id="report-body"></div>
+        <!-- Bottom spacer so last section clears the sticky footer bar -->
+        <div style="height:80px"></div>
+    </div>
+</div>
+
+<!-- SHARE BAR — lives at document root, OUTSIDE #report's transform context -->
+<div class="report-share-bar" id="report-share-bar">
+    <button class="share-btn s" onclick="closeReport()">
+        <i class="fas fa-camera" style="margin-right:6px"></i>New Scan
+    </button>
+    <button class="share-btn p" onclick="shareReport()">
+        <i class="fas fa-share-alt" style="margin-right:6px"></i>Share
+    </button>
+</div>
+
+<div class="toast" id="toast">✅ Done!</div>
+<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
+
+<script>
+// ===== STATE =====
+const API = '';
+let currentPersona = 'General';
+let currentCat = 'general';
+let currentLang = 'en';
+let blob = null;
+let lastResult = null;
+let myChart = null;
+let scanHistory = [];
+let saveHistory = true;
+let currentAbortCtrl = null;
+const LANGUAGES = [
+    { code:'en', label:'English', flag:'🇬🇧' },
+    { code:'zh', label:'简体中文', flag:'🇨🇳' },
+    { code:'es', label:'Español', flag:'🇪🇸' },
+    { code:'ar', label:'العربية', flag:'🇸🇦' },
+    { code:'fr', label:'Français', flag:'🇫🇷' },
+    { code:'hi', label:'हिन्दी', flag:'🇮🇳' },
+    { code:'pt', label:'Português', flag:'🇧🇷' },
+    { code:'de', label:'Deutsch', flag:'🇩🇪' },
+];
+const LANG_NAMES = { en:'English', zh:'Chinese', es:'Spanish', ar:'Arabic', fr:'French', hi:'Hindi', pt:'Portuguese', de:'German' };
+// ===== INIT =====
+window.onload = () => {
+    try { scanHistory = JSON.parse(localStorage.getItem('eatlytic_v3') || '[]'); } catch { scanHistory = []; }
+    try { saveHistory = JSON.parse(localStorage.getItem('eatlytic_save_hist') ?? 'true'); } catch { saveHistory = true; }
+    const savedLang = localStorage.getItem('eatlytic_lang') || 'en';
+    setLang(savedLang, false);
+    const savedPersona = localStorage.getItem('eatlytic_persona') || 'General';
+    currentPersona = savedPersona;
+    renderLangOptions();
+    updateProfileStats();
+};
+// ===== TABS =====
+function switchTab(tab) {
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + tab).classList.add('active');
+    document.getElementById('nav-' + tab).classList.add('active');
+    if (tab === 'history') renderHistory();
+    if (tab === 'profile') updateProfileStats();
+}
+// ===== CHIPS =====
+function setChip(el, type, value) {
+    const rowId = type === 'persona' ? 'persona-row' : 'cat-row';
+    document.querySelectorAll('#' + rowId + ' .chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    if (type === 'persona') currentPersona = value;
+    else currentCat = value;
+}
+// ===== FILE / CAMERA =====
+// ===== DRAG & DROP =====
+function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('upload-drop-card').classList.add('drag-over');
+}
+function handleDragLeave(e) {
+    document.getElementById('upload-drop-card').classList.remove('drag-over');
+}
+function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-drop-card').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleFile(file);
+    else showContextualError('file_type', '📄', 'Unsupported File', 'Please upload a photo (JPG, PNG, HEIC). Other file types are not supported.');
+}
+// ===== FILE HANDLING =====
+async function handleFile(file) {
+    if (!file) return;
+    blob = file;
+    hideError();
+    document.getElementById('landing-ui').style.display = 'none';
+    // Revoke any previous object URL to avoid memory leak
+    const prevSrc = document.getElementById('preview-img').src;
+    if (prevSrc && prevSrc.startsWith('blob:')) URL.revokeObjectURL(prevSrc);
+    document.getElementById('preview-img').src = URL.createObjectURL(file);
+    document.getElementById('preview-area').style.display = 'block';
+    document.getElementById('analyze-btn-text').textContent = 'Analyze Label';
+    document.getElementById('analyze-main-btn').style.display = 'none';
+    // Start image quality assessment with progress animation
+    runImageAssessment(file);
+}
+function setImgState(type, icon, text, tip) {
+    const badge = document.getElementById('img-state-badge');
+    badge.className = 'img-state-row ' + type;
+    badge.style.display = 'flex';
+    document.getElementById('state-icon').textContent = icon;
+    document.getElementById('state-text').textContent = text;
+    document.getElementById('state-tip').textContent = tip || '';
+}
+async function runImageAssessment(file) {
+    // Show progress bar while assessing
+    const progress = document.getElementById('upload-progress');
+    const bar = document.getElementById('upload-progress-bar');
+    progress.style.display = 'block';
+    bar.style.width = '0%';
+    setImgState('checking', '⏳', 'Checking image quality...', '');
+    // Animate progress bar
+    await animateBar(bar, 0, 40, 300);
+    // Client-side variance check
+    const variance = await getImageVariance(file);
+    await animateBar(bar, 40, 80, 300);
+    // Small delay so user sees the animation
+    await new Promise(r => setTimeout(r, 200));
+    await animateBar(bar, 80, 100, 200);
+    setTimeout(() => {
+        progress.style.display = 'none';
+        bar.style.width = '0%';
+    }, 400);
+    // Set final state badge
+    if (variance < 200) {
+        setImgState('poor', '⚠️', 'Low contrast detected', 'Try again with better lighting or move closer');
+    } else if (variance < 600) {
+        setImgState('fair', '🔆', 'Fair image quality', 'Results may vary — clearer photos give better analysis');
+    } else {
+        setImgState('good', '✅', 'Good image quality', 'Looking good — label is clear and readable');
+    }
+    // Show analyze button
+    document.getElementById('analyze-main-btn').style.display = 'block';
+}
+function animateBar(bar, from, to, ms) {
+    return new Promise(resolve => {
+        bar.style.transition = 'none';
+        bar.style.width = from + '%';
+        requestAnimationFrame(() => {
+            bar.style.transition = `width ${ms}ms ease`;
+            bar.style.width = to + '%';
+            setTimeout(resolve, ms);
+        });
+    });
+}
+function getImageVariance(file) {
+    return new Promise(resolve => {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl); // revoke once loaded
+            const c = document.createElement('canvas');
+            c.width = Math.min(img.width, 400);
+            c.height = Math.round(img.height * c.width / img.width);
+            const ctx = c.getContext('2d');
+            ctx.drawImage(img, 0, 0, c.width, c.height);
+            const d = ctx.getImageData(0, 0, c.width, c.height).data;
+            let vals = [];
+            for (let i = 0; i < d.length; i += 4 * 8)
+                vals.push(0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]);
+            const mean = vals.reduce((a,b) => a+b, 0) / vals.length;
+            const variance = vals.reduce((a,b) => a + (b-mean)*(b-mean), 0) / vals.length;
+            resolve(variance);
+        };
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(999); };
+        img.src = objectUrl;
+    });
+}
+async function startCamera() {
+    try {
+        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment', width:{ideal:1920} } });
+        document.getElementById('video').srcObject = s;
+        document.getElementById('cam-overlay').classList.add('active');
+    } catch { alert('Camera permission denied. Please allow camera access.'); }
+}
+function stopCamera() {
+    const s = document.getElementById('video').srcObject;
+    if (s) s.getTracks().forEach(t => t.stop());
+    document.getElementById('cam-overlay').classList.remove('active');
+}
+function capture() {
+    const v = document.getElementById('video');
+    if (!v.videoWidth || !v.videoHeight) {
+        showToast('⏳ Camera not ready — try again');
+        return;
+    }
+    const c = document.getElementById('canvas');
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    c.toBlob(b => {
+        if (!b) { showToast('❌ Capture failed — try again'); return; }
+        stopCamera();
+        handleFile(b);
+    }, 'image/jpeg', 0.95);
+}
+function resetHome() {
+    blob = null;
+    const prevSrc = document.getElementById('preview-img').src;
+    if (prevSrc && prevSrc.startsWith('blob:')) URL.revokeObjectURL(prevSrc);
+    document.getElementById('preview-img').src = '';
+    document.getElementById('preview-area').style.display = 'none';
+    document.getElementById('landing-ui').style.display = 'block';
+    hideError();
+    document.getElementById('blur-notice').classList.remove('visible');
+    // Reset file input so same file can be re-selected
+    document.getElementById('fileInput').value = '';
+}
+// ===== ERROR HANDLING =====
+// type: 'wrong_side' | 'no_text' | 'blurry' | 'generic' | 'timeout' | 'server'
+function showContextualError(type, icon, title, msg) {
+    // Don't null blob here — user may still retry with the same image
+    document.getElementById('preview-area').style.display = 'none';
+    document.getElementById('landing-ui').style.display = 'block';
+    const card = document.getElementById('error-card');
+    const inner = document.getElementById('error-card-inner');
+    const flipIllus = document.getElementById('err-flip-illustration');
+    const retryBtn = document.getElementById('err-retry-btn');
+    const uploadBtn = document.getElementById('err-upload-btn');
+    // Reset classes
+    card.className = 'error-card';
+    flipIllus.style.display = 'none';
+    retryBtn.style.display = 'block';
+    uploadBtn.style.display = 'none';
+    document.getElementById('err-icon').textContent = icon;
+    document.getElementById('err-title').textContent = title;
+    document.getElementById('err-msg').textContent = msg;
+    if (type === 'wrong_side') {
+        // Special no-label / wrong-side treatment
+        card.classList.add('no-label');
+        flipIllus.style.display = 'block';
+        retryBtn.innerHTML = '<i class="fas fa-sync-alt" style="margin-right:6px"></i>Scan the Back Label';
+        uploadBtn.style.display = 'block';
+        uploadBtn.innerHTML = '<i class="fas fa-image" style="margin-right:6px"></i>Upload Different Image';
+    } else if (type === 'blurry') {
+        retryBtn.innerHTML = '<i class="fas fa-camera" style="margin-right:6px"></i>Retake Photo — Move Closer';
+        uploadBtn.style.display = 'block';
+        uploadBtn.innerHTML = '<i class="fas fa-image" style="margin-right:6px"></i>Upload from Gallery';
+    } else if (type === 'timeout') {
+        retryBtn.innerHTML = '<i class="fas fa-redo" style="margin-right:6px"></i>Try Again';
+        uploadBtn.style.display = 'block';
+        uploadBtn.innerHTML = '<i class="fas fa-image" style="margin-right:6px"></i>Use Different Image';
+    } else {
+        retryBtn.innerHTML = '<i class="fas fa-camera" style="margin-right:6px"></i>Retake Photo';
+        uploadBtn.style.display = 'block';
+        uploadBtn.innerHTML = '<i class="fas fa-image" style="margin-right:6px"></i>Upload from Gallery';
+    }
+    card.style.display = 'block';
+}
+// Legacy compat shim (called by old paths)
+function showError(icon, title, msg) {
+    showContextualError('generic', icon, title, msg);
+}
+function hideError() {
+    document.getElementById('error-card').style.display = 'none';
+    document.getElementById('error-card').classList.remove('no-label');
+}
+function triggerRetake() {
+    hideError();
+    startCamera();
+}
+// ===== ANALYZE =====
+function cancelAnalysis() {
+    if (currentAbortCtrl) currentAbortCtrl.abort();
+}
+// Show / hide the blur notice banner on the home tab
+function handleBlurNotice(blurInfo) {
+    const notice = document.getElementById('blur-notice');
+    if (!blurInfo || !blurInfo.detected) {
+        notice.classList.remove('visible');
+        return;
+    }
+    const pill    = document.getElementById('bn-severity-pill');
+    const body    = document.getElementById('bn-body');
+    const methods = document.getElementById('bn-methods');
+    const title   = document.getElementById('bn-title');
+    const sev     = blurInfo.severity || 'moderate';
+    pill.textContent = sev.toUpperCase();
+    pill.className   = `severity-pill ${sev}`;
+    if (blurInfo.deblurred) {
+        title.textContent = '🔧 Blur Detected & Corrected';
+        body.textContent  = `Image identified as ${sev}ly blurry. ` +
+            `Deblurring and enhancement algorithms were applied. ` +
+            `Analysis is based on the enhanced image. ` +
+            `Composite blur score: ${blurInfo.score}/100.`;
+        if (blurInfo.method_log) {
+            methods.textContent = 'Pipeline: ' + blurInfo.method_log;
+            methods.style.display = 'block';
+        }
+    } else {
+        title.textContent = '⚠️ Blur Detected — Using Original';
+        body.textContent  = `Blur detected (severity: ${sev}, score: ${blurInfo.score}/100). ` +
+            `Deblurring was attempted but the original image yielded better OCR results. ` +
+            `Results may be less accurate — consider retaking with better lighting.`;
+        methods.style.display = 'none';
+    }
+    notice.classList.add('visible');
+}
+async function analyze() {
+    if (!blob) return;
+    hideError();
+    const loader = document.getElementById('loader');
+    const stepEl = document.getElementById('loader-step');
+    loader.style.display = 'flex';
+    const steps = [
+        '📷 Checking image quality...',
+        '🔧 Detecting & correcting blur...',
+        '🔍 Reading label text (OCR)...',
+        '🌐 Searching nutrition database...',
+        '🧠 Running AI analysis...',
+        '📊 Building your report...',
+    ];
+    let si = 0;
+    stepEl.textContent = steps[0];
+    const stepTimer = setInterval(() => {
+        si = Math.min(si + 1, steps.length - 1);
+        stepEl.textContent = steps[si];
+    }, 2800);
+    currentAbortCtrl = new AbortController();
+    const timeoutId = setTimeout(() => currentAbortCtrl.abort(), 100000);
+    const fd = new FormData();
+    fd.append('image', blob);
+    fd.append('persona', currentPersona);
+    fd.append('age_group', 'adult');
+    fd.append('product_category', currentCat);
+    fd.append('language', currentLang);
+    try {
+        const res = await fetch(`${API}/analyze`, {
+            method: 'POST', body: fd,
+            signal: currentAbortCtrl.signal
+        });
+        if (!res.ok) throw new Error(`Server error ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        if (data.error === 'image_quality') {
+            showContextualError('blurry','📷','Image Too Blurry', data.message || 'The photo is too blurry. Move closer and hold steady.');
+            return;
+        }
+        if (data.error === 'no_label') {
+            const isWrongSide = data.tip === 'wrong_side';
+            showContextualError('wrong_side', isWrongSide ? '🔄' : '📋',
+                isWrongSide ? "That's the Front of the Product" : 'No Nutrition Label Found',
+                data.message || 'Please flip your product and scan the back label showing ingredients and nutrition facts.');
+            return;
+        }
+        if (data.error === 'no_text') {
+            showContextualError('blurry','🔍','No Text Detected', data.message || 'No text visible. Make sure the label is clearly in frame.');
+            return;
+        }
+        if (data.error === 'ocr_quality') {
+            showContextualError('blurry','📋','Label Unreadable', data.message || 'Retake the photo — words are missing.');
+            return;
+        }
+        if (data.error) throw new Error(data.error);
+        // Show blur notice if blur was detected
+        handleBlurNotice(data.blur_info);
+        lastResult = data;
+        renderReport(data);
+        if (saveHistory) addToHistory(data);
+    } catch (e) {
+        if (e.name === 'AbortError') {
+            showContextualError('timeout', '⏱️', 'Request Timed Out', 'The server took too long. This happens on first use while AI models load. Please try again in a moment.');
+        } else {
+            showContextualError('generic', '❌', 'Analysis Failed', e.message || 'Something went wrong. Please try again.');
+        }
+    } finally {
+        clearInterval(stepTimer);
+        clearTimeout(timeoutId);
+        currentAbortCtrl = null;
+        loader.style.display = 'none';
+    }
+}
+// ===== RENDER REPORT =====
+// Guard flag prevents the body from being written twice
+function renderReport(d) {
+    // ── Hero text ─────────────────────────────────────────────
+    document.getElementById('r-score').textContent = d.score ?? '—';
+    document.getElementById('r-verdict').textContent = (d.verdict || 'Analyzed').toUpperCase();
+    document.getElementById('r-name').textContent = d.product_name || 'Unknown Product';
+    document.getElementById('r-cat').querySelector('span').textContent = d.product_category || currentCat;
+    document.getElementById('r-summary').textContent = d.summary || '';
+    // ── Pie chart (destroy first, always fresh) ───────────────
+    if (myChart) { myChart.destroy(); myChart = null; }
+    const ctx = document.getElementById('safetyChart').getContext('2d');
+    const cd = Array.isArray(d.chart_data) && d.chart_data.length === 3 ? d.chart_data : [70,20,10];
+    myChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: cd,
+                backgroundColor: ['#2D7A4F','#C9A84C','#D96B47'],
+                borderWidth: 0, hoverOffset: 3
+            }]
+        },
+        options: {
+            cutout: '74%',
+            plugins: { legend:{ display:false }, tooltip:{ enabled:false } },
+            animation: { duration:900 }
+        }
+    });
+    // ── Body — SINGLE write, guaranteed ──────────────────────
+    // Build HTML string first, then assign once.
+    // Two-step assignment (clear then set) can cause flicker;
+    // single assignment is atomic in the DOM.
+    const bodyHtml = buildBody(d);
+    const body = document.getElementById('report-body');
+    body.innerHTML = bodyHtml;          // one write, no duplicates
+    // ── Open report + show footer bar ────────────────────────
+    document.getElementById('report').classList.add('open');
+    document.getElementById('report-share-bar').classList.add('visible');
+    // Scroll inner scroll wrapper to top (not the #report which has overflow:hidden)
+    const scroller = document.querySelector('#report .report-scroll');
+    if (scroller) scroller.scrollTop = 0;
+    // ── Animate nutrient bars (wait one frame for DOM paint) ──
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            document.querySelectorAll('#report-body .n-bar[data-w]').forEach(b => {
+                b.style.width = b.dataset.w + '%';
+            });
+        }, 160);
+    });
+}
+function buildBody(d) {
+    const nutrients = Array.isArray(d.nutrient_breakdown) ? d.nutrient_breakdown : [];
+    const pros = Array.isArray(d.pros) ? d.pros : [];
+    const cons = Array.isArray(d.cons) ? d.cons : [];
+    const ageW = Array.isArray(d.age_warnings) ? d.age_warnings : [];
+    let html = '';
+    // 0. Blur info section (shown at top of report if blur was detected)
+    const bi = d.blur_info;
+    if (bi && bi.detected) {
+        const sevClass = bi.severity || 'moderate';
+        if (bi.deblurred && bi.image_b64) {
+            html += `<div class="r-section" style="padding:14px">
+                <div class="deblur-report-badge">🔧 Blur Corrected — Enhanced Image Used</div>
+                <div class="deblur-img-wrap">
+                    <img src="${bi.image_b64}" alt="Deblurred image" loading="lazy">
+                </div>
+                <div style="font-size:0.76rem;color:var(--mist);line-height:1.5">
+                    The original image was <strong>${escHtml(bi.severity)}ly blurry</strong>
+                    (score&nbsp;${bi.score}/100). It was processed through a
+                    multi-stage enhancement pipeline before OCR and analysis.
+                    ${bi.method_log ? `<br><span style="font-family:monospace;font-size:0.68rem;color:#A16207">Pipeline: ${escHtml(bi.method_log)}</span>` : ''}
+                </div>
+            </div>`;
+        } else if (bi.detected) {
+            html += `<div class="r-section" style="padding:14px;background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:var(--radius-sm)">
+                <div class="deblur-report-badge">⚠️ Blur Detected</div>
+                <div style="font-size:0.76rem;color:#78350F;line-height:1.5">
+                    Blur was detected in this image (severity:&nbsp;<strong>${escHtml(bi.severity)}</strong>,
+                    score&nbsp;${bi.score}/100). The original image was used after comparison.
+                    For best results, retake with better lighting and a steady hand.
+                </div>
+            </div>`;
+        }
+    }
+    // 1. Simple Explanation
+    if (d.eli5_explanation) {
+        html += `<div class="r-section">
+            <div class="r-title">Simple Explanation</div>
+            <div class="eli5-box">
+                <span class="eli5-label">🍭 Easy Read</span>
+                ${escHtml(d.eli5_explanation)}
+            </div>
+        </div>`;
+    }
+    // 2. Nutritional Breakdown
+    if (nutrients.length) {
+        const MAXES = { g:50, mg:2000, '%':100, kcal:500, kj:2000 };
+        html += `<div class="r-section">
+            <div class="r-title">Nutritional Breakdown</div>
+            <div class="nutrient-legend">
+                <div class="n-leg"><div class="n-dot" style="background:#2D7A4F"></div>Good</div>
+                <div class="n-leg"><div class="n-dot" style="background:#C9A84C"></div>Moderate</div>
+                <div class="n-leg"><div class="n-dot" style="background:#D96B47"></div>Caution</div>
+                <div class="n-leg"><div class="n-dot" style="background:#8B0000"></div>Bad</div>
+            </div>
+            ${nutrients.map(n => {
+                const r = n.rating || 'moderate';
+                const max = MAXES[n.unit] || 100;
+                const pct = Math.min(100, (parseFloat(n.value) / max) * 100);
+                return `<div class="nutrient-item">
+                    <div class="nutrient-row">
+                        <div class="n-name">${escHtml(n.name)}</div>
+                        <div class="n-bar-wrap"><div class="n-bar bar-${r}" data-w="${pct.toFixed(1)}"></div></div>
+                        <div class="n-val">${n.value}${n.unit||''}</div>
+                    </div>
+                    ${n.impact ? `<div class="n-impact">${escHtml(n.impact)}</div>` : ''}
+                </div>`;
+            }).join('')}
+        </div>`;
+    }
+    // 3. Pros & Cons
+    if (pros.length || cons.length) {
+        html += `<div class="r-section">
+            <div class="r-title">Pros &amp; Cons</div>
+            <div class="pc-grid">
+                <div>
+                    <div class="pc-label p">Benefits</div>
+                    ${pros.map(p => `<div class="pc-item"><div class="pc-dot p"></div><span>${escHtml(p)}</span></div>`).join('')}
+                </div>
+                <div>
+                    <div class="pc-label c">Risks</div>
+                    ${cons.map(c => `<div class="pc-item"><div class="pc-dot c"></div><span>${escHtml(c)}</span></div>`).join('')}
+                </div>
+            </div>
+        </div>`;
+    }
+    // 4. Product Description (2 paragraphs)
+    if (d.paragraph_benefits || d.paragraph_uniqueness) {
+        html += `<div class="r-section">
+            <div class="r-title">Product Analysis</div>
+            ${d.paragraph_benefits ? `<p class="para-text">${escHtml(d.paragraph_benefits)}</p>` : ''}
+            ${d.paragraph_uniqueness ? `<p class="para-text">${escHtml(d.paragraph_uniqueness)}</p>` : ''}
+        </div>`;
+    }
+    // 5. Age Group Warnings
+    if (ageW.length) {
+        html += `<div class="r-section">
+            <div class="r-title">By Age Group</div>
+            <div class="age-grid">
+                ${ageW.map(w => `
+                <div class="age-card ${w.status || 'caution'}">
+                    <div class="age-emoji">${w.emoji || '👤'}</div>
+                    <div class="age-grp">${escHtml(w.group)}</div>
+                    <div class="age-msg">${escHtml(w.message)}</div>
+                </div>`).join('')}
+            </div>
+        </div>`;
+    }
+    // 6. Molecular Insight
+    if (d.molecular_insight) {
+        html += `<div class="r-section">
+            <div class="r-title">Molecular Insight</div>
+            <div class="mol-box">🔬 ${escHtml(d.molecular_insight)}</div>
+        </div>`;
+    }
+    // 7. Better Alternative
+    if (d.better_alternative) {
+        html += `<div class="r-section" style="padding:0;overflow:hidden">
+            <div class="alt-box">
+                <div class="alt-icon">💡</div>
+                <div>
+                    <div class="alt-lbl">Better Alternative</div>
+                    <div class="alt-text">${escHtml(d.better_alternative)}</div>
+                </div>
+            </div>
+        </div>`;
+    }
+    return html;
+}
+function escHtml(str) {
+    // Only escape the four chars that break HTML structure.
+    // Do NOT encode quotes in text nodes — causes doubled encoding.
+    // Emojis, unicode, special chars pass through safely as text nodes.
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+function closeReport() {
+    document.getElementById('report').classList.remove('open');
+    document.getElementById('report-share-bar').classList.remove('visible');
+    // Reset scroll so next open starts from top
+    const scroller = document.querySelector('#report .report-scroll');
+    if (scroller) scroller.scrollTop = 0;
+}
+// ===== HISTORY =====
+function addToHistory(data) {
+    const item = { id: Date.now(), date: new Date().toLocaleDateString(), lang: currentLang, data };
+    scanHistory.unshift(item);
+    if (scanHistory.length > 30) scanHistory.pop();
+    try { localStorage.setItem('eatlytic_v3', JSON.stringify(scanHistory)); } catch {}
+    updateBadge();
+}
+function renderHistory() {
+    const div = document.getElementById('history-list');
+    if (!scanHistory.length) {
+        div.innerHTML = `<div class="history-empty"><i class="fas fa-history"></i>No scans yet.<br>Go to Home and scan a label to get started.</div>`;
+        return;
+    }
+    div.innerHTML = scanHistory.map(item => {
+        const sc = item.data.score ?? 0;
+        const col = sc >= 7 ? '#2D7A4F' : sc >= 4 ? '#B07D22' : '#C94B1E';
+        const bg  = sc >= 7 ? '#ECFDF5' : sc >= 4 ? '#FFFBEB' : '#FEF2F2';
+        return `<div class="history-card" onclick="loadScan(${item.id})">
+            <div class="h-score-ring" style="background:${bg};color:${col}">${sc}</div>
+            <div style="flex:1">
+                <div class="h-name">${escHtml(item.data.product_name || 'Unknown')}</div>
+                <div class="h-meta">${escHtml(item.data.verdict || '')} · ${item.date}</div>
+            </div>
+            <i class="fas fa-trash h-del" onclick="deleteScan(${item.id},event)"></i>
+        </div>`;
+    }).join('') +
+    (scanHistory.length > 1 ? `<button class="history-clear-btn" onclick="clearAllHistory()">🗑 Clear All History</button>` : '');
+}
+function loadScan(id) {
+    const item = scanHistory.find(i => i.id === id);
+    if (!item) return;
+    lastResult = item.data;
+    switchTab('home');          // switch first so home tab is active
+    renderReport(item.data);   // then open report on top
+}
+function deleteScan(id, e) {
+    e.stopPropagation();
+    scanHistory = scanHistory.filter(i => i.id !== id);
+    try { localStorage.setItem('eatlytic_v3', JSON.stringify(scanHistory)); } catch {}
+    renderHistory();
+    updateBadge();
+}
+function clearAllHistory() {
+    if (!confirm('Delete all scan history?')) return;
+    scanHistory = [];
+    try { localStorage.removeItem('eatlytic_v3'); } catch {}
+    renderHistory();
+    updateProfileStats();
+    updateBadge();
+}
+function updateBadge() {
+    // Could show count badge on nav — leave as hook
+}
+// ===== PROFILE =====
+function updateProfileStats() {
+    document.getElementById('stat-scans').textContent = scanHistory.length;
+    if (scanHistory.length) {
+        const scores = scanHistory.map(i => i.data.score).filter(s => s != null);
+        const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : '—';
+        const best = scores.length ? Math.max(...scores) : '—';
+        document.getElementById('stat-avg').textContent = avg;
+        document.getElementById('stat-best').textContent = best;
+    } else {
+        document.getElementById('stat-avg').textContent = '—';
+        document.getElementById('stat-best').textContent = '—';
+    }
+    document.getElementById('pref-lang-val').textContent = LANG_NAMES[currentLang] || 'English';
+    document.getElementById('pref-persona-val').textContent = currentPersona;
+    document.getElementById('pref-persona-sel').value = currentPersona;
+    document.getElementById('prof-sub').textContent = `${currentPersona} · ${LANG_NAMES[currentLang] || 'English'}`;
+    const toggle = document.getElementById('history-toggle');
+    toggle.className = 'toggle-switch ' + (saveHistory ? 'on' : '');
+}
+function savePersonaPref(val) {
+    currentPersona = val;
+    // Sync persona chips on home tab
+    document.querySelectorAll('#persona-row .chip').forEach(c => {
+        c.classList.toggle('active', c.textContent.includes(val));
+    });
+    localStorage.setItem('eatlytic_persona', val);
+    updateProfileStats();
+}
+function toggleHistorySave() {
+    saveHistory = !saveHistory;
+    try { localStorage.setItem('eatlytic_save_hist', JSON.stringify(saveHistory)); } catch {}
+    updateProfileStats();
+}
+// ===== LANGUAGE =====
+function openLang() { document.getElementById('lang-modal').classList.add('open'); }
+function closeLangBackdrop(e) {
+    if (e.target.classList.contains('lang-backdrop') || e.target.id === 'lang-modal')
+        document.getElementById('lang-modal').classList.remove('open');
+}
+function renderLangOptions() {
+    document.getElementById('lang-options').innerHTML = LANGUAGES.map(l => `
+        <div class="lang-option ${l.code === currentLang ? 'active' : ''}" onclick="setLang('${l.code}')">
+            <span class="lang-flag">${l.flag}</span><span>${l.label}</span>
+        </div>`).join('');
+}
+function setLang(code, save = true) {
+    currentLang = code;
+    document.getElementById('lang-display').textContent = code.toUpperCase();
+    document.getElementById('analyze-btn-text').textContent = 'Analyze Label';
+    document.getElementById('lang-modal').classList.remove('open');
+    if (save) try { localStorage.setItem('eatlytic_lang', code); } catch {}
+    renderLangOptions();
+    updateProfileStats();
+}
+// ===== SHARE =====
+async function shareReport() {
+    if (!lastResult) return;
+    const text = `🌿 Eatlytic Food Report\n\n${lastResult.product_name}\nScore: ${lastResult.score}/10 — ${lastResult.verdict}\n\n${lastResult.summary}`;
+    try {
+        if (navigator.share) { await navigator.share({ title:'Eatlytic Report', text }); }
+        else { await navigator.clipboard.writeText(text); showToast('📋 Copied to clipboard!'); }
+    } catch { showToast('📋 Report copied!'); }
+}
+function showToast(msg = '✅ Done!') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>

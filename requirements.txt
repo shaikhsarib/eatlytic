@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+requests
+pillow
+easyocr
+opencv-python-headless
+numpy
+groq
+slowapi
+pydantic
